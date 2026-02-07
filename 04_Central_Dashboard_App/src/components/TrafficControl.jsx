@@ -15,7 +15,7 @@ const TrafficControl = () => {
 
     // Mock Payload (In real app, get from inputs)
     const payload = {
-        start: "Market Yard",
+        start: "Lane 1",
         end: "Railway Station"
     };
 
@@ -26,7 +26,7 @@ const TrafficControl = () => {
         console.error("API Error", err);
         // Fallback Mock Data if API is offline
         setRoute({
-            route: ["Market Yard", "Bypass Road", "Railway Station"],
+            route: ["Lane 1", "Bypass Road", "Railway Station"],
             estimated_time: "25 mins (Offline Mode)",
             note: "API Unreachable. Showing safe bypass."
         });
@@ -47,7 +47,7 @@ const TrafficControl = () => {
           await axios.post('http://localhost:5001/set-event', {
               active: isActive,
               name: selectedEvent,
-              junctions: ["Shivaji Chowk", "Saat Rasta"] // Default affected zones
+              junctions: ["Lane 4", "Lane 3"] // Default affected zones
           });
           alert(`Traffic Logic Updated: ${selectedEvent} Mode Activated`);
       } catch (err) {
@@ -69,7 +69,7 @@ const TrafficControl = () => {
 
             <form onSubmit={handleFindRoute} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder="Start: Market Yard" disabled className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-slate-400 cursor-not-allowed" />
+                    <input type="text" placeholder="Start: Lane 1" disabled className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-slate-400 cursor-not-allowed" />
                     <input type="text" placeholder="End: Railway Station" disabled className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-slate-400 cursor-not-allowed" />
                 </div>
                 <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded transition-colors">

@@ -1,0 +1,27 @@
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+ENV/
+
+# YOLO / AI Models
+*.pt
+*.onnx
+*.engine
+
+# App specific
+01_Traffic_Flow_Automation/videos/
+01_Traffic_Flow_Automation/server_err.txt
+01_Traffic_Flow_Automation/server_log.txt
+01_Traffic_Flow_Automation/*.pt
+
+# OS files
+.DS_Store
+Thumbs.db

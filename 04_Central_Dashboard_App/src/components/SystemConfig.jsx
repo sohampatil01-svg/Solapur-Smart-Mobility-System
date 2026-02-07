@@ -98,9 +98,9 @@ const SystemConfig = ({ cityMeta }) => {
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="text-xs text-slate-500 mb-1 block">Start Location</label>
-                        <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                            <MapPin className="w-4 h-4 text-slate-500 mr-2" />
-                            <input name="start" defaultValue="Market Yard" className="bg-transparent w-full text-sm text-white outline-none" />
+                        <div className="flex items-center gap-3 bg-slate-900/50 p-2 rounded border border-slate-700">
+                            <MapPin className="text-indigo-400 w-4 h-4" />
+                            <input name="start" defaultValue="Lane 1" className="bg-transparent w-full text-sm text-white outline-none" />
                         </div>
                     </div>
                     <div>
