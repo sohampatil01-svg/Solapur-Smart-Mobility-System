@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { LayoutDashboard, Settings, Map, Bell } from 'lucide-react';
+import { LayoutDashboard, Settings, Map, Bell, ParkingCircle } from 'lucide-react';
 
 import LiveGrid from '../components/LiveGrid'; 
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import SystemConfig from '../components/SystemConfig';
 import VehicleTable from '../components/VehicleTable';
-import MapView from '../components/MapView'; // New Import
+import MapView from '../components/MapView'; 
+import ParkingView from '../components/ParkingView';
+import AlertsPanel from '../components/AlertsPanel';
 
 const Dashboard = () => {
   const [trafficData, setTrafficData] = useState(null);
@@ -17,16 +19,26 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get('http://localhost:5001/traffic-data');
-        setTrafficData(res.data);
+        const [trafficRes, parkingRes] = await Promise.all([
+            axios.get('http://localhost:5001/traffic-data'),
+            axios.get('http://localhost:5002/parking-data')
+        ]);
+        
+        // Merge parking into traffic data for compatibility with existing components
+        const combinedData = {
+            ...trafficRes.data,
+            parking: parkingRes.data
+        };
+        
+        setTrafficData(combinedData);
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching traffic data", err);
+        console.error("Error fetching data from servers", err);
       }
     };
 
     fetchData(); // Initial Call
-    const interval = setInterval(fetchData, 1500); // Faster polling for smoother timer UI
+    const interval = setInterval(fetchData, 2000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -63,6 +75,12 @@ const Dashboard = () => {
                 label="Map View" 
                 active={currentView === 'map'}
                 onClick={() => setCurrentView('map')}
+            />
+            <NavItem 
+                icon={<ParkingCircle />} 
+                label="Parking Control" 
+                active={currentView === 'parking'}
+                onClick={() => setCurrentView('parking')}
             />
             <NavItem 
                 icon={<Settings />} 
@@ -110,7 +128,15 @@ const Dashboard = () => {
                                 <span className="text-xs font-mono text-indigo-400">AUTOMATION ACTIVE</span>
                             </div>
                         </div>
-                        <LiveGrid trafficData={trafficData} />
+                        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                            <div className="xl:col-span-3">
+                                <LiveGrid trafficData={trafficData} />
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-mono text-slate-500 uppercase">System Alerts</h3>
+                                <AlertsPanel alerts={trafficData?.alerts} />
+                            </div>
+                        </div>
                     </section>
 
                     {/* 2. Detailed Data Table */}
@@ -132,6 +158,15 @@ const Dashboard = () => {
                         <span className="text-xs font-mono text-slate-500">GPS SYNC ACTIVE</span>
                     </div>
                     <MapView trafficData={trafficData} />
+                </section>
+            ) : currentView === 'parking' ? (
+                /* Parking View */
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-slate-200">Smart Parking Management</h2>
+                        <span className="text-xs font-mono text-slate-500">IOT SENSORS ONLINE</span>
+                    </div>
+                    <ParkingView parkingData={trafficData?.parking} />
                 </section>
             ) : (
                 /* Config View */

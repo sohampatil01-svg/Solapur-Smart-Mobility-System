@@ -39,12 +39,17 @@ LINE_POS = [100, 450, 1100, 450]
 # Using cvzone.CornerRect format logic: x, y, w, h
 NO_PARKING_RECT = [50, 300, 200, 200] # x, y, w, h (width=200, height=200)
 
+# Hawker/Vending Zone
+HAWKER_ZONE = [800, 300, 300, 250]
+
 # --- STATE VARIABLES ---
 total_vehicle_count = 0
 tracked_ids = set()
 violation_counter = {} # {track_id: frames_in_zone}
+hawker_counter = 0 # Frames with high person count in zone
 ambulance_detected = False
 is_violation_active = False
+is_hawker_active = False
 
 # API Timer
 last_api_time = 0
@@ -56,24 +61,33 @@ model = YOLO("yolov8n.pt") # Downloads automatically if missing
 # Initialize Video
 cap = cv2.VideoCapture(VIDEO_PATH)
 
-def send_data_to_server(count, violation, ambulance):
+def send_data_to_server(count, violation, ambulance, hawker):
     """Sends data to the central server in a separate thread to avoid blocking video."""
     try:
-        payload = {
-            "junction": "Lane 1",
-            "vehicle_count": count,
-            "violation": violation,
-            "ambulance": ambulance
-        }
-        # 1. Update Traffic Stats
-        # requests.post(f"{SERVER_URL}/update-traffic", json=payload, timeout=0.5)
+        # 1. Update Traffic Stats (existing)
+        # 2. Report Violation
+        if violation:
+             requests.post(f"{SERVER_URL}/report-alert", json={
+                 "type": "Illegal Parking",
+                 "location": "Junction 1 - West",
+                 "message": "Vehicle detected in No-Parking Zone for > 2 mins",
+                 "severity": "medium"
+             }, timeout=0.5)
+
+        # 3. Report Hawkers
+        if hawker:
+             requests.post(f"{SERVER_URL}/report-alert", json={
+                 "type": "Unauthorized Vending",
+                 "location": "Main Market Sidewalk",
+                 "message": "Group of hawkers detected blocking pedestrian path",
+                 "severity": "high"
+             }, timeout=0.5)
         
-        # 2. Trigger Ambulance Signal (If detected)
+        # 4. Trigger Ambulance Signal (If detected)
         if ambulance:
-             requests.post(f"{SERVER_URL}/emergency", json={"junction": "Lane 1"}, timeout=0.5)
+             requests.post(f"{SERVER_URL}/emergency", json={"junction": "Lane 1 Market Yard"}, timeout=0.5)
              print("🚑 AMBULANCE ALERT SENT!")
 
-        # print(f"📡 Data Sent: Count={count} | Violation={violation}")
     except Exception as e:
         pass # Ignore connection errors to keep video smooth
 
@@ -89,15 +103,11 @@ while True:
     img = cv2.resize(img, (1280, 720))
     
     # Run Detection
-    results = model(img, stream=True)
+    results = model.track(img, persist=True, tracker="bytetrack.yaml", verbose=False)
     
     # Reset Per-Frame Flags
     current_ambulance_frame = False
-    
-    # Detections Array for Tracking (could add tracker here, but using simple centroid logic for line)
-    # Ideally use model.track() for IDs, but standard predict works for basic counting if IDs provided
-    # Let's use the tracker built into YOLOv8:
-    results = model.track(img, persist=True, tracker="bytetrack.yaml", verbose=False)
+    people_in_hawker_zone = 0
     
     # Processing Results
     for result in results:
@@ -118,18 +128,6 @@ while True:
             # ID (Tracker ID)
             id = int(box.id[0]) if box.id is not None else 0
 
-            # --- FEATURE C: AMBULANCE DETECTION ---
-            # COCO doesn't have "ambulance". Usually we train a custom model.
-            # For this demo, we will simulate: If it's a "truck" with high confidence, check visuals?
-            # Or just assume "truck" is ambulance for demo purposes if needed?
-            # Let's stick to strict COCO: If specific class detected.
-            # Since standard COCO lacks it, I will use "truck" as a placeholder for demo
-            # OR logic: if the user provides a custom model. 
-            # *For this script, I will assume 'truck' might be an ambulance for simulation.*
-            if current_class == "truck" or current_class == "bus":
-                 # In a real scenario, you'd use a custom trained model.
-                 pass 
-
             # Filter for Vehicles
             if current_class in VEHICLE_CLASSES or current_class == "person":
                 
@@ -138,38 +136,38 @@ while True:
                 if current_class == "person": color = (255, 0, 0) # Blue for people
                 
                 cvzone.cornerRect(img, (x1, y1, w, h), l=9, rt=2, colorR=color)
-                cvzone.putTextRect(img, f'{id} {current_class} {conf}', (max(0, x1), max(35, y1)), scale=1, thickness=1, offset=3)
                 
                 # Center Point
                 cx, cy = x1 + w // 2, y1 + h // 2
                 cv2.circle(img, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
 
                 # --- FEATURE A: LINE COUNTING ---
-                # Check if crossing the line (Y = 450)
-                # We use a small buffer zone
                 if LINE_POS[1] - 15 < cy < LINE_POS[1] + 15:
                     if id not in tracked_ids:
                         total_vehicle_count += 1
                         tracked_ids.add(id)
-                        cv2.line(img, (LINE_POS[0], LINE_POS[1]), (LINE_POS[2], LINE_POS[3]), (0, 255, 0), 5)
 
                 # --- FEATURE B: NO PARKING ZONE ---
-                # Zone: NO_PARKING_RECT = [x, y, w, h]
                 zx, zy, zw, zh = NO_PARKING_RECT
                 if zx < cx < zx + zw and zy < cy < zy + zh:
-                    # Object is inside the Red Zone
                     violation_counter[id] = violation_counter.get(id, 0) + 1
-                    
-                    # If inside for > 50 frames (~2 seconds)
                     if violation_counter[id] > 50:
                         is_violation_active = True
-                        # Draw Red Warning
-                        cvzone.cornerRect(img, (x1, y1, w, h), l=9, rt=5, colorR=(0, 0, 255))
                         cvzone.putTextRect(img, "ILLEGAL PARKING", (x1, y1 - 20), scale=1.5, thickness=2, colorR=(0, 0, 255))
-                else:
-                    # Reset counter if they leave
-                    if id in violation_counter:
-                        violation_counter[id] = 0
+                
+                # --- FEATURE C: HAWKER DETECTION ---
+                hx, hy, hw, hh = HAWKER_ZONE
+                if current_class == "person" and hx < cx < hx + hw and hy < cy < hy + hh:
+                    people_in_hawker_zone += 1
+
+    # Hawker logic: If > 3 people in zone for a while
+    if people_in_hawker_zone >= 3:
+        hawker_counter += 1
+        if hawker_counter > 100: # ~4 seconds
+            is_hawker_active = True
+    else:
+        hawker_counter = 0
+        is_hawker_active = False
 
     # --- DRAW OVERLAYS ---
     
@@ -178,25 +176,27 @@ while True:
     
     # 2. No Parking Zone
     px, py, pw, ph = NO_PARKING_RECT
-    # Draw transparent rectangle logic
-    # (Simple rectangle for cv2)
     cv2.rectangle(img, (px, py), (px + pw, py + ph), (0, 0, 255), 2)
-    cv2.putText(img, "NO PARKING ZONE", (px, py - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+    cv2.putText(img, "NO PARKING", (px, py - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-    # 3. Dashboard UI
+    # 3. Hawker Zone
+    hx, hy, hw, hh = HAWKER_ZONE
+    cv2.rectangle(img, (hx, hy), (hx + hw, hy + hh), (0, 165, 255), 2)
+    cv2.putText(img, "HEDGING/HAWKER ZONE", (hx, hy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+    
+    if is_hawker_active:
+        cvzone.putTextRect(img, 'HAWKER ALERT!', (800, 150), scale=2, thickness=2, colorR=(0, 165, 255), offset=10)
+
+    # Dashboard UI
     cvzone.putTextRect(img, f'Count: {total_vehicle_count}', (50, 50), scale=2, thickness=2, offset=10)
     
-    if is_violation_active:
-        cvzone.putTextRect(img, 'VIOLATION ALERT!', (50, 150), scale=2, thickness=2, colorR=(0, 0, 255), offset=10)
-        # Reset flag slightly for next frame logic (or keep it true until object leaves)
-        is_violation_active = False # Reset for per-frame check logic
-
     # --- FEATURE 4: BACKEND SYNC ---
     current_time = time.time()
-    if current_time - last_api_time > 2: # Every 2 seconds
-        # Start thread
-        threading.Thread(target=send_data_to_server, args=(total_vehicle_count, is_violation_active, ambulance_detected)).start()
+    if current_time - last_api_time > 5: # Every 5 seconds
+        threading.Thread(target=send_data_to_server, args=(total_vehicle_count, is_violation_active, ambulance_detected, is_hawker_active)).start()
         last_api_time = current_time
+        # Reset violation flags after sending
+        is_violation_active = False 
 
     # Show Image
     cv2.imshow("Surveillance Module - Solapur Smart City", img)

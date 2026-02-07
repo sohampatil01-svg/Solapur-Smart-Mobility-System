@@ -1,74 +1,160 @@
-import React from 'react';
+import React, { useState } from 'react';
+import axios from 'axios';
+import { Navigation, MapPin, Search, Clock, ChevronRight } from 'lucide-react';
 
 const MapView = ({ trafficData }) => {
+  const [start, setStart] = useState('Railway Station');
+  const [end, setEnd] = useState('SMC Office');
+  const [routeResult, setRouteResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
   if (!trafficData) return null;
 
-  // Mock Coordinates for the 4 Lanes relative to a central point
-  // Ideally, this would be a real map image background
-  const junctions = [
-    { id: "Lane 1", x: "50%", y: "20%", label: "North Junction" },
-    { id: "Lane 2", x: "80%", y: "50%", label: "East Market" },
-    { id: "Lane 3", x: "50%", y: "80%", label: "South Highway" },
-    { id: "Lane 4", x: "20%", y: "50%", label: "West Gate" },
+  const locations = [
+    "Railway Station", "Seven Star", "Market Yard", "Mechanic Chowk", 
+    "Saat Rasta", "SMC Office", "Bypass", "Shivaji Chowk"
   ];
 
+  const markers = [
+    { id: "Railway Station", x: "15%", y: "45%", label: "Hub" },
+    { id: "Seven Star", x: "35%", y: "30%", label: "Junction" },
+    { id: "Market Yard", x: "35%", y: "60%", label: "Market Yard" },
+    { id: "Mechanic Chowk", x: "55%", y: "45%", label: "Mechanic Chowk" },
+    { id: "SMC Office", x: "75%", y: "30%", label: "Govt Zone" },
+    { id: "Saat Rasta", x: "55%", y: "75%", label: "Saat Rasta" },
+    { id: "Bypass", x: "85%", y: "60%", label: "Exit" },
+    { id: "Shivaji Chowk", x: "85%", y: "85%", label: "Shivaji Chowk" },
+  ];
+
+  const handleOptimize = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.post('http://localhost:5001/optimize-route', { start, end });
+      setRouteResult(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg shadow-black/20 h-[600px] relative group">
-        
-        {/* Map Background (Placeholder for real Solapur Map) */}
-        <div className="absolute inset-0 bg-slate-800 opacity-50 flex items-center justify-center">
-            {/* Simple CSS Roads */}
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-full h-12 bg-slate-700"></div>
-                <div className="h-full w-12 bg-slate-700 absolute"></div>
-            </div>
-            <p className="text-slate-500 font-bold text-4xl opacity-20 rotate-45">SOLAPUR CITY MAP</p>
-        </div>
+    <div className="flex flex-col xl:flex-row gap-6 h-[700px]">
+        {/* Map Area */}
+        <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl">
+            {/* Grid Background */}
+            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+            
+            {/* Fake Roads */}
+            <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none">
+                <path d="M 0 350 L 1200 350" stroke="#94a3b8" strokeWidth="40" fill="none" />
+                <path d="M 450 0 L 450 800" stroke="#94a3b8" strokeWidth="40" fill="none" />
+                <path d="M 700 0 L 700 800" stroke="#94a3b8" strokeWidth="40" fill="none" />
+            </svg>
 
-        {/* Junction Markers */}
-        {junctions.map((j) => {
-            const data = trafficData.junctions[j.id];
-            const isGreen = data?.signal?.includes("GREEN");
-            const density = data?.density || 0;
+            {/* Path Highlight (Simplified) */}
+            {routeResult && (
+                <div className="absolute inset-0 z-10 pointer-events-none">
+                    {/* Visualizing path would require more complex SVG logic, for now we just label the markers */}
+                </div>
+            )}
 
-            return (
-                <div 
-                    key={j.id}
-                    className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2 cursor-pointer hover:scale-110 transition-transform"
-                    style={{ left: j.x, top: j.y }}
-                >
-                    {/* Signal Indicator */}
-                    <div className={`w-8 h-8 rounded-full border-4 border-slate-900 shadow-xl flex items-center justify-center ${
-                        isGreen ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-rose-500 shadow-rose-500/50'
-                    }`}>
-                        <span className="text-[10px] font-bold text-slate-900">{density}%</span>
-                    </div>
-
-                    {/* Label Box */}
-                    <div className="bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-700 text-center min-w-[120px]">
-                        <p className="text-xs font-bold text-white">{j.id}</p>
-                        <p className="text-[10px] text-slate-400">{j.label}</p>
-                        
-                        {/* Status Line */}
-                        <div className="mt-1 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
-                            <div 
-                                className={`h-full ${density > 80 ? 'bg-rose-500' : 'bg-emerald-500'}`} 
-                                style={{ width: `${density}%` }}
-                            />
+            {/* Location Markers */}
+            {markers.map((m) => {
+                const isInRoute = routeResult?.optimized_route?.includes(m.id);
+                return (
+                    <div 
+                        key={m.id}
+                        className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-all duration-500 ${
+                            isInRoute ? 'z-20 scale-110' : 'z-0 opacity-60'
+                        }`}
+                        style={{ left: m.x, top: m.y }}
+                    >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-slate-900 shadow-xl transition-all ${
+                            isInRoute ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-slate-700'
+                        }`}>
+                            <MapPin size={18} className={isInRoute ? 'text-white' : 'text-slate-400'} />
+                        </div>
+                        <div className={`mt-2 px-3 py-1 rounded bg-slate-900/90 border ${
+                            isInRoute ? 'border-indigo-500 text-indigo-100 shadow-lg' : 'border-slate-800 text-slate-500'
+                        }`}>
+                            <p className="text-[10px] font-bold whitespace-nowrap">{m.id}</p>
                         </div>
                     </div>
-                </div>
-            );
-        })}
-
-        <div className="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur p-4 rounded-lg border border-slate-700">
-            <h4 className="text-white font-bold text-sm mb-2">Legend</h4>
-            <div className="space-y-2 text-xs text-slate-400">
-                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> Low Density (Green)</div>
-                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-rose-500"></span> High Congestion (Red)</div>
-            </div>
+                );
+            })}
         </div>
 
+        {/* Route Planner Sidebar */}
+        <div className="xl:w-80 space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                    <Navigation className="text-indigo-400" size={20} />
+                    Route Optimizer
+                </h3>
+
+                <div className="space-y-3">
+                    <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Start Location</label>
+                        <select 
+                            value={start}
+                            onChange={(e) => setStart(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                        >
+                            {locations.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase ml-1">Destination</label>
+                        <select 
+                            value={end}
+                            onChange={(e) => setEnd(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                        >
+                            {locations.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                    </div>
+
+                    <button 
+                        onClick={handleOptimize}
+                        disabled={loading || start === end}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                    >
+                        {loading ? 'Analyzing...' : 'Find Fastest Route'}
+                        <Search size={16} />
+                    </button>
+                </div>
+            </div>
+
+            {routeResult && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex items-center justify-between">
+                        <span className="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">OPTIMIZED</span>
+                        <div className="flex items-center gap-1 text-slate-300">
+                            <Clock size={14} className="text-indigo-400" />
+                            <span className="text-sm font-bold">{routeResult.estimated_time}</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 py-2">
+                        {routeResult.optimized_route.map((stop, i) => (
+                            <div key={stop} className="flex items-center gap-3">
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-indigo-500' : i === routeResult.optimized_route.length -1 ? 'bg-rose-500' : 'bg-slate-600'}`}></div>
+                                    {i !== routeResult.optimized_route.length - 1 && <div className="w-0.5 h-6 bg-slate-800"></div>}
+                                </div>
+                                <span className="text-xs font-medium text-slate-300">{stop}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 text-[10px] text-indigo-300 leading-relaxed italic">
+                        "{routeResult.reason}"
+                    </div>
+                </div>
+            )}
+        </div>
     </div>
   );
 };

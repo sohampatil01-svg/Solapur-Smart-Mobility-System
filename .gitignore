@@ -16,6 +16,15 @@ ENV/
 *.onnx
 *.engine
 
+# Database
+*.db
+*.db-journal
+
+# Media
+*.mp4
+*.webm
+*.avi
+
 # App specific
 01_Traffic_Flow_Automation/videos/
 01_Traffic_Flow_Automation/server_err.txt

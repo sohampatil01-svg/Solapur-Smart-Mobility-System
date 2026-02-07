@@ -2,11 +2,60 @@ import time
 import threading
 import os
 import cv2
+import sqlite3
 import numpy as np
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
+
+# --- DATABASE SETUP ---
+DB_PATH = 'city_data.db'
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS traffic_history
+                 (timestamp TEXT, lane_id TEXT, vehicle_count INTEGER, density INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS parking_history
+                 (timestamp TEXT, lot_id TEXT, occupied INTEGER)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def log_snapshots():
+    while True:
+        time.sleep(60) # Log every minute
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            ts = time.strftime("%Y-%m-%d %H:%M:%S")
+            # Log Traffic
+            for lane_id, data in junctions.items():
+                c.execute("INSERT INTO traffic_history VALUES (?, ?, ?, ?)", 
+                          (ts, lane_id, data["total"], data["density"]))
+            # Log Parking
+            for lot_id, lot in parking_lots.items():
+                c.execute("INSERT INTO parking_history VALUES (?, ?, ?)", 
+                          (ts, lot_id, lot["occupied"]))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Snapshot Error: {e}")
+
+threading.Thread(target=log_snapshots, daemon=True).start()
+
+def log_traffic_data(lane_id, count, density):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("INSERT INTO traffic_history VALUES (?, ?, ?, ?)", (ts, lane_id, count, density))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"DB Error: {e}")
 
 # Prevent OpenCV from spawning extra threads which can crash Flask
 cv2.setNumThreads(0)
@@ -34,14 +83,16 @@ CLASS_MAP = {1: "bike", 2: "car", 3: "bike", 5: "bus", 7: "truck"}
 
 # --- STATE MANAGEMENT ---
 frame_buffer = {
-    "Lane 1": None, "Lane 2": None, "Lane 3": None, "Lane 4": None
+    "Lane 1 Market Yard": None, "Lane 2 Mechanic Chowk": None, "Lane 3 Saat Rasta": None, "Lane 4 Shivaji Chowk": None
 }
 
+alerts = [] # Global list for obstruction/illegal activities
+
 junctions = {
-    "Lane 1": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
-    "Lane 2": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
-    "Lane 3": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
-    "Lane 4": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False }
+    "Lane 1 Market Yard": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
+    "Lane 2 Mechanic Chowk": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
+    "Lane 3 Saat Rasta": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
+    "Lane 4 Shivaji Chowk": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False }
 }
 
 # --- VIDEO PROCESSOR ---
@@ -179,6 +230,64 @@ def start_video_async(lane_id, save_path):
     junctions[lane_id]["active"] = True
     process_lane_video(lane_id)
 
+import heapq
+
+# --- GRAPH DATA FOR SOLAPUR ---
+# Simplified graph of Solapur city landmarks
+# (Start, End, Base Distance in minutes)
+CITY_GRAPH = {
+    "Railway Station": {"Seven Star": 5, "Market Yard": 8, "Bypass": 15},
+    "Seven Star": {"Railway Station": 5, "Mechanic Chowk": 4, "SMC Office": 6},
+    "Market Yard": {"Railway Station": 8, "Mechanic Chowk": 5, "Saat Rasta": 3},
+    "Mechanic Chowk": {"Seven Star": 4, "Market Yard": 5, "Saat Rasta": 7, "SMC Office": 3},
+    "Saat Rasta": {"Market Yard": 3, "Mechanic Chowk": 7, "Shivaji Chowk": 10},
+    "SMC Office": {"Seven Star": 6, "Mechanic Chowk": 3, "Bypass": 12},
+    "Bypass": {"Railway Station": 15, "SMC Office": 12, "Shivaji Chowk": 8},
+    "Shivaji Chowk": {"Saat Rasta": 10, "Bypass": 8}
+}
+
+# Mapping lanes to graph edges for dynamic weights
+LANE_TO_EDGE = {
+    "Lane 1 Market Yard": ("Railway Station", "Market Yard"),
+    "Lane 2 Mechanic Chowk": ("Seven Star", "Mechanic Chowk"),
+    "Lane 3 Saat Rasta": ("Market Yard", "Saat Rasta"),
+    "Lane 4 Shivaji Chowk": ("Saat Rasta", "Shivaji Chowk")
+}
+
+def dijkstra(start, end):
+    # Adjust weights based on density
+    # weight = base_time * (1 + density/100)
+    
+    # Create dynamic weights
+    dynamic_graph = {}
+    for node, neighbors in CITY_GRAPH.items():
+        dynamic_graph[node] = {}
+        for neighbor, weight in neighbors.items():
+            # Check if this edge is one of our monitored lanes
+            bonus_weight = 0
+            for lane_id, (u, v) in LANE_TO_EDGE.items():
+                if (node == u and neighbor == v) or (node == v and neighbor == u):
+                    density = junctions[lane_id]["density"]
+                    bonus_weight = weight * (density / 50.0) # Double weight if 100% density
+            
+            dynamic_graph[node][neighbor] = weight + bonus_weight
+
+    queue = [(0, start, [])]
+    seen = set()
+    
+    while queue:
+        (cost, node, path) = heapq.heappop(queue)
+        if node not in seen:
+            path = path + [node]
+            seen.add(node)
+            if node == end:
+                return path, round(cost)
+
+            for next_node, weight in dynamic_graph.get(node, {}).items():
+                heapq.heappush(queue, (cost + weight, next_node, path))
+
+    return None, 0
+
 # --- ENDPOINTS ---
 
 @app.route('/upload-video', methods=['POST'])
@@ -217,8 +326,33 @@ def generate_frames(lane_id):
 def get_traffic_data():
     return jsonify({
         "junctions": junctions,
-        "meta": city_meta
+        "meta": city_meta,
+        "alerts": alerts[-10:] # Return last 10 alerts
     })
+
+@app.route('/analytics', methods=['GET'])
+def get_analytics():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT timestamp, AVG(density) FROM traffic_history GROUP BY timestamp ORDER BY timestamp DESC LIMIT 20")
+    rows = c.fetchall()
+    conn.close()
+    chart_data = [{"time": r[0].split(" ")[1], "avg_density": r[1]} for r in reversed(rows)]
+    return jsonify(chart_data)
+
+@app.route('/report-alert', methods=['POST'])
+def report_alert():
+    data = request.json
+    new_alert = {
+        "id": int(time.time()),
+        "timestamp": time.strftime("%H:%M:%S"),
+        "type": data.get("type", "General"),
+        "location": data.get("location", "Unknown"),
+        "message": data.get("message", "No description"),
+        "severity": data.get("severity", "low")
+    }
+    alerts.append(new_alert)
+    return jsonify({"status": "received"})
 
 @app.route('/emergency', methods=['POST'])
 def trigger_emergency():
@@ -245,30 +379,29 @@ def set_event():
 @app.route('/optimize-route', methods=['POST'])
 def optimize_route():
     data = request.json
-    start = data.get("start", "Start")
-    end = data.get("end", "End")
+    start = data.get("start", "Railway Station")
+    end = data.get("end", "SMC Office")
     
-    # Simple Mock Logic for Demo
-    # In a real app, this would use Dijkstra's algorithm on a graph
+    if start not in CITY_GRAPH or end not in CITY_GRAPH:
+        return jsonify({"error": "Start or End location not recognized"}), 400
+
+    path, travel_time = dijkstra(start, end)
+    
+    if not path:
+        return jsonify({"error": "No route found"}), 404
+
+    # Determine reason for route
+    reason = "Traffic Normal. Fastest Path Selected."
+    if travel_time > 15: # Arbitrary threshold
+        reason = "Dynamic adjustment: High density detected on primary lanes. Alternate route suggested."
     
     if city_meta["event_mode"] == "VIP Movement":
-         return jsonify({
-            "optimized_route": [start, "Ring Road", "Bypass", end],
-            "estimated_time": "45 mins",
-            "reason": "City Center Blocked for VIP. Taking Bypass."
-        })
-    
-    if junctions["Lane 1"]["density"] > 70 or junctions["Lane 4"]["density"] > 70:
-        return jsonify({
-            "optimized_route": [start, "Old Market Road", "Station Back Gate", end],
-            "estimated_time": "22 mins",
-            "reason": "Traffic High on Main Lanes. Avoided."
-        })
+         reason = "City Center priority for VIP. Commuter route optimized for safety."
 
     return jsonify({
-        "optimized_route": [start, "Main High Street", "Station Circle", end],
-        "estimated_time": "12 mins",
-        "reason": "Traffic Normal. Fastest Path Selected."
+        "optimized_route": path,
+        "estimated_time": f"{travel_time} mins",
+        "reason": reason
     })
 
 if __name__ == '__main__':
