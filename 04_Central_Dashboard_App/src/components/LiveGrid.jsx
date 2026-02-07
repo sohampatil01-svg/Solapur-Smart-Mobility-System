@@ -40,7 +40,7 @@ const LiveGrid = ({ trafficData }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {Object.entries(trafficData.junctions).map(([name, data]) => (
-            <div key={name} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg flex gap-4 h-[280px]">
+            <div key={name} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg flex gap-4 h-[350px]">
                 
                 {/* LEFT: Traffic Light Control */}
                 <div className="flex flex-col items-center justify-between py-2">

@@ -8,15 +8,15 @@ import SystemConfig from '../components/SystemConfig';
 import VehicleTable from '../components/VehicleTable';
 import MapView from '../components/MapView'; 
 import ParkingView from '../components/ParkingView';
-import AlertsPanel from '../components/AlertsPanel';
 
 const Dashboard = () => {
   const [trafficData, setTrafficData] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard'); 
   const [loading, setLoading] = useState(true);
 
-  // Poll Backend Data
+  // Robust Polling Mechanism
   useEffect(() => {
+    let timer;
     const fetchData = async () => {
       try {
         const [trafficRes, parkingRes] = await Promise.all([
@@ -24,22 +24,21 @@ const Dashboard = () => {
             axios.get('http://localhost:5002/parking-data')
         ]);
         
-        // Merge parking into traffic data for compatibility with existing components
-        const combinedData = {
+        setTrafficData({
             ...trafficRes.data,
             parking: parkingRes.data
-        };
-        
-        setTrafficData(combinedData);
+        });
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching data from servers", err);
+        console.error("Link Error:", err);
+      } finally {
+        // Schedule next call ONLY after current one finishes
+        timer = setTimeout(fetchData, 3000);
       }
     };
 
-    fetchData(); // Initial Call
-    const interval = setInterval(fetchData, 2000); 
-    return () => clearInterval(interval);
+    fetchData(); 
+    return () => clearTimeout(timer);
   }, []);
 
   if (loading) return (
@@ -128,14 +127,8 @@ const Dashboard = () => {
                                 <span className="text-xs font-mono text-indigo-400">AUTOMATION ACTIVE</span>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                            <div className="xl:col-span-3">
-                                <LiveGrid trafficData={trafficData} />
-                            </div>
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-mono text-slate-500 uppercase">System Alerts</h3>
-                                <AlertsPanel alerts={trafficData?.alerts} />
-                            </div>
+                        <div className="w-full">
+                            <LiveGrid trafficData={trafficData} />
                         </div>
                     </section>
 

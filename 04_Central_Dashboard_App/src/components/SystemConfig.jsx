@@ -40,6 +40,11 @@ const SystemConfig = ({ cityMeta }) => {
     }
   };
 
+  const locations = [
+    "Railway Station", "Seven Star", "Market Yard", "Mechanic Chowk", 
+    "Saat Rasta", "SMC Office", "Bypass", "Shivaji Chowk"
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in zoom-in duration-500">
       
@@ -97,18 +102,16 @@ const SystemConfig = ({ cityMeta }) => {
             <form onSubmit={handleFindRoute} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="text-xs text-slate-500 mb-1 block">Start Location</label>
-                        <div className="flex items-center gap-3 bg-slate-900/50 p-2 rounded border border-slate-700">
-                            <MapPin className="text-indigo-400 w-4 h-4" />
-                            <input name="start" defaultValue="Lane 1" className="bg-transparent w-full text-sm text-white outline-none" />
-                        </div>
+                        <label className="text-xs text-slate-500 mb-1 block">Start Point</label>
+                        <select name="start" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                            {locations.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
                     </div>
                     <div>
                         <label className="text-xs text-slate-500 mb-1 block">Destination</label>
-                        <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
-                            <MapPin className="w-4 h-4 text-slate-500 mr-2" />
-                            <input name="end" defaultValue="Railway Station" className="bg-transparent w-full text-sm text-white outline-none" />
-                        </div>
+                        <select name="end" defaultValue="SMC Office" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                            {locations.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
                     </div>
                 </div>
 
