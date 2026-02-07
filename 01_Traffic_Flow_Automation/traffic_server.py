@@ -111,10 +111,10 @@ frame_buffer = {
 alerts = [] # Global list for obstruction/illegal activities
 
 junctions = {
-    "Lane 1 Market Yard": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
-    "Lane 2 Mechanic Chowk": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
-    "Lane 3 Saat Rasta": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False },
-    "Lane 4 Shivaji Chowk": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "signal": "RED", "timer": 0, "active": False }
+    "Lane 1 Market Yard": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "status": "Smooth", "signal": "RED", "timer": 0, "active": False },
+    "Lane 2 Mechanic Chowk": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "status": "Smooth", "signal": "RED", "timer": 0, "active": False },
+    "Lane 3 Saat Rasta": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "status": "Smooth", "signal": "RED", "timer": 0, "active": False },
+    "Lane 4 Shivaji Chowk": { "video_path": None, "counts": {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}, "total": 0, "density": 0, "status": "Smooth", "signal": "RED", "timer": 0, "active": False }
 }
 
 # --- ADAPTIVE TIMING LOGIC ---
@@ -190,25 +190,23 @@ def process_lane_video(lane_id):
                                 "conf": conf
                             })
 
-                if junctions[lane_id]["signal"] == "EMERGENCY":
-                    current_counts["ambulance"] = 1 
+                # --- EMERGENCY PROTOCOL (Manual or AI Detection) ---
+                if current_counts["ambulance"] > 0:
+                    for other_lane in junctions:
+                        if other_lane != lane_id:
+                            junctions[other_lane]["signal"] = "RED"
+                            junctions[other_lane]["timer"] = 0
+                    junctions[lane_id]["signal"] = "GREEN"
+                    junctions[lane_id]["timer"] = 90
+                    print(f"🚑 EMERGENCY: Green Corridor active for {lane_id}")
 
-                total_veh = sum(current_counts.values())
-                weighted_score = sum([current_counts[k] * VEHICLE_WEIGHTS.get(k, 1) for k in current_counts if k != "ambulance"])
-                density = min((weighted_score / MAX_LANE_CAPACITY) * 100, 100)
-                
-                junctions[lane_id]["counts"] = current_counts
-                junctions[lane_id]["total"] = total_veh
-                junctions[lane_id]["density"] = int(density)
-                
-                # ADAPTIVE SIGNAL LOGIC
-                if junctions[lane_id]["signal"] != "EMERGENCY":
-                    if weighted_score > 5:
+                # --- ADAPTIVE SIGNAL LOGIC ---
+                if current_counts["ambulance"] == 0: 
+                    if density_pct > 15: 
                         if junctions[lane_id]["signal"] == "RED":
                             junctions[lane_id]["signal"] = "GREEN"
-                            junctions[lane_id]["timer"] = calculate_signal_timer(density)
+                            junctions[lane_id]["timer"] = calculate_signal_timer(density_pct)
                     else:
-                        # Only turn RED if density is low
                         if weighted_score <= 5:
                             junctions[lane_id]["signal"] = "RED"
                             junctions[lane_id]["timer"] = 0
@@ -283,22 +281,34 @@ LANE_TO_EDGE = {
 }
 
 def dijkstra(start, end):
-    # Adjust weights based on density
-    # weight = base_time * (1 + density/100)
+    # Architectural Best Practice: BPR Exponential Delay Logic
+    # TravelTime = BaseTime * (1 + 0.5 * (Density/70)^4)
+    # This means delay remains low until 70% density, then explodes.
     
-    # Create dynamic weights
     dynamic_graph = {}
     for node, neighbors in CITY_GRAPH.items():
         dynamic_graph[node] = {}
         for neighbor, weight in neighbors.items():
-            # Check if this edge is one of our monitored lanes
-            bonus_weight = 0
+            density = 0
+            is_red = False
+            
+            # Map graph edge to real-time junction data
             for lane_id, (u, v) in LANE_TO_EDGE.items():
                 if (node == u and neighbor == v) or (node == v and neighbor == u):
                     density = junctions[lane_id]["density"]
-                    bonus_weight = weight * (density / 50.0) # Double weight if 100% density
+                    is_red = junctions[lane_id]["signal"] == "RED"
             
-            dynamic_graph[node][neighbor] = weight + bonus_weight
+            # 1. Exponential Density Penalty
+            penalty_factor = 1 + 0.8 * ((density / 70.0) ** 4)
+            
+            # 2. Signal Penalty (Avoid starting a route into a RED light)
+            signal_wait = 0.5 if is_red else 0 # Add 30s penalty for RED
+            
+            # 3. Global Event Blocking
+            if city_meta["event_mode"] == "Religious Procession" and "Market" in neighbor:
+                penalty_factor = 100 # Effectively block market area
+            
+            dynamic_graph[node][neighbor] = (weight * penalty_factor) + signal_wait
 
     queue = [(0, start, [])]
     seen = set()
@@ -309,7 +319,7 @@ def dijkstra(start, end):
             path = path + [node]
             seen.add(node)
             if node == end:
-                return path, round(cost)
+                return path, round(cost, 1)
 
             for next_node, weight in dynamic_graph.get(node, {}).items():
                 heapq.heappush(queue, (cost + weight, next_node, path))
@@ -384,11 +394,21 @@ def report_alert():
 
 @app.route('/emergency', methods=['POST'])
 def trigger_emergency():
-    lane = request.json.get("junction")
-    if lane in junctions:
-        junctions[lane]["signal"] = "EMERGENCY"
-        junctions[lane]["counts"]["ambulance"] = 1 # Force ambulance count
-        return jsonify({"status": "OK"})
+    target_lane = request.json.get("junction")
+    if target_lane in junctions:
+        # 1. Activate Green Corridor for target lane
+        junctions[target_lane]["signal"] = "GREEN"
+        junctions[target_lane]["timer"] = 90  # Give 90s priority
+        junctions[target_lane]["counts"]["ambulance"] = 1
+        
+        # 2. FORCE ALL OTHER LANES TO RED
+        for lane_id in junctions:
+            if lane_id != target_lane:
+                junctions[lane_id]["signal"] = "RED"
+                junctions[lane_id]["timer"] = 0
+                
+        print(f"🚨 EMERGENCY MODE: Green Corridor active for {target_lane}")
+        return jsonify({"status": "EMERGENCY_ACTIVE", "target": target_lane})
     return jsonify({"error": "Not Found"}), 404
 
 # --- SYSTEM CONFIG ENDPOINTS ---
@@ -423,17 +443,23 @@ def optimize_route():
         return jsonify({"error": "No route found"}), 404
 
     # Determine reason for route
-    reason = "Traffic Normal. Fastest Path Selected."
+    reason = "FASTEST PATH: Selected using BPR Exponential Delay Logic."
     
-    # Check for specific junction load
-    shivaji_data = junctions.get("Lane 4 Shivaji Chowk", {"density": 0})
-    if shivaji_data["density"] > 70:
-        reason = f"DYNAMIC REROUTE: Shivaji Chowk is heavily congested ({shivaji_data['density']}%). Suggested alternate path."
+    # Identify high congestion along the route
+    max_density = 0
+    for stop in path:
+        # Check if this stop corresponds to a lane
+        for lane_id, (u, v) in LANE_TO_EDGE.items():
+            if stop in (u, v):
+                max_density = max(max_density, junctions[lane_id]["density"])
+
+    if max_density > 75:
+        reason = f"CONGESTION EVASION: Rerouted to avoid {max_density}% density bottleneck."
     elif is_peak:
-        reason = "PEAK HOUR FLOW: Avoiding major market bottlenecks for smoother transit."
+        reason = "PEAK HOUR OPTIMIZED: Avoiding core market zones during high-load window."
     
-    if city_meta["event_mode"] == "VIP Movement":
-         reason = "VIP SECURITY PROTOCOL: Priority corridor established. Commuter route optimized."
+    if city_meta["event_mode"] != "Normal Flow":
+         reason = f"EVENT MODE ({city_meta['event_mode']}): Rerouted for security/safety corridor."
 
     return jsonify({
         "optimized_route": path,

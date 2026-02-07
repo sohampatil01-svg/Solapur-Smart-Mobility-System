@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { LayoutDashboard, Settings, Map, Bell, ParkingCircle } from 'lucide-react';
+import { LayoutDashboard, Settings, Map, Bell, ParkingCircle, Flame } from 'lucide-react';
 
 import LiveGrid from '../components/LiveGrid'; 
 import AnalyticsPanel from '../components/AnalyticsPanel';
@@ -8,6 +8,8 @@ import SystemConfig from '../components/SystemConfig';
 import VehicleTable from '../components/VehicleTable';
 import MapView from '../components/MapView'; 
 import ParkingView from '../components/ParkingView';
+import HeatmapView from '../components/HeatmapView';
+import RouteWidget from '../components/RouteWidget';
 
 const Dashboard = () => {
   const [trafficData, setTrafficData] = useState(null);
@@ -74,6 +76,12 @@ const Dashboard = () => {
                 label="Map View" 
                 active={currentView === 'map'}
                 onClick={() => setCurrentView('map')}
+            />
+            <NavItem 
+                icon={<Flame />} 
+                label="Heatmap" 
+                active={currentView === 'heatmap'} 
+                onClick={() => setCurrentView('heatmap')}
             />
             <NavItem 
                 icon={<ParkingCircle />} 
@@ -151,6 +159,15 @@ const Dashboard = () => {
                         <span className="text-xs font-mono text-slate-500">GPS SYNC ACTIVE</span>
                     </div>
                     <MapView trafficData={trafficData} />
+                </section>
+            ) : currentView === 'heatmap' ? (
+                /* Heatmap View */
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-slate-200">City Congestion Heatmap</h2>
+                        <span className="text-xs font-mono text-indigo-400">AREA OCCUPANCY ANALYSIS</span>
+                    </div>
+                    <HeatmapView trafficData={trafficData} />
                 </section>
             ) : currentView === 'parking' ? (
                 /* Parking View */
