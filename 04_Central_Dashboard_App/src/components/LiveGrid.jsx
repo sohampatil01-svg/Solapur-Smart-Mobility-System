@@ -64,6 +64,11 @@ const LiveGrid = ({ trafficData }) => {
                         }`}>
                             {data.density}%
                         </div>
+                        <div className={`px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 ${
+                            data.counts?.ambulance > 0 ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-700 text-slate-300'
+                        }`}>
+                            🚑 {data.counts?.ambulance > 0 ? 'AMB: YES' : 'AMB: NO'}
+                        </div>
                     </div>
 
                     {/* Stream or Placeholder */}

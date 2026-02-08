@@ -103,6 +103,9 @@ const TrafficCard = ({ trafficData }) => {
                     <span className="flex items-center gap-1"><span className="text-indigo-400">🚗</span> {data.counts?.car || 0}</span>
                     <span className="flex items-center gap-1"><span className="text-emerald-400">🚌</span> {data.counts?.bus || 0}</span>
                     <span className="flex items-center gap-1"><span className="text-rose-400">🚚</span> {data.counts?.truck || 0}</span>
+                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${data.counts?.ambulance > 0 ? 'bg-red-500/20 text-red-400 animate-pulse' : ''}`}>
+                        <span>🚑</span> {data.counts?.ambulance > 0 ? 'YES' : 'NO'}
+                    </span>
                 </div>
                 
                 {/* Re-upload button (visible on hover) */}

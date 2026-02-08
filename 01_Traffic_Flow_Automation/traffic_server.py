@@ -91,8 +91,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Load YOLO Model
-print("Loading YOLOv8 Medium Model (yolov8m.pt)...")
-model = YOLO('yolov8m.pt') 
+print("Loading YOLOv8 Nano Model (yolov8n.pt)...")
+model = YOLO('yolov8n.pt') 
 
 # --- CONSTANTS ---
 VEHICLE_WEIGHTS = {
@@ -100,8 +100,8 @@ VEHICLE_WEIGHTS = {
 }
 MAX_LANE_CAPACITY = 40.0 
 
-# Class ID mapping: 1=Bicycle, 2=Car, 3=Bike, 5=Bus, 7=Truck
-CLASS_MAP = {1: "bike", 2: "car", 3: "bike", 5: "bus", 7: "truck"}
+# Class ID mapping: 1=Bicycle, 2=Car, 3=Bike, 5=Bus, 7=Truck, 18=Ambulance/Emergency
+CLASS_MAP = {1: "bike", 2: "car", 3: "bike", 5: "bus", 7: "truck", 18: "ambulance"}
 
 # --- STATE MANAGEMENT ---
 frame_buffer = {
@@ -150,6 +150,8 @@ def process_lane_video(lane_id):
     
     frame_count = 0
     cached_boxes = [] 
+    density_pct = junctions[lane_id]["density"]
+    weighted_score = (density_pct / 100.0) * MAX_LANE_CAPACITY
     
     try:
         while junctions[lane_id]["active"]:
@@ -168,8 +170,8 @@ def process_lane_video(lane_id):
             frame = cv2.resize(frame, (640, 360))
             frame_count += 1
             
-            if frame_count % 2 == 0:
-                results = model(frame, stream=True, verbose=False, conf=0.25) 
+            if frame_count % 5 == 0:
+                results = model(frame, verbose=False, conf=0.4) 
                 
                 cached_boxes = []
                 current_counts = {"car": 0, "bus": 0, "truck": 0, "bike": 0, "ambulance": 0}
@@ -189,6 +191,16 @@ def process_lane_video(lane_id):
                                 "label": label,
                                 "conf": conf
                             })
+
+                # Update junction state
+                weighted_score = sum(current_counts[v] * VEHICLE_WEIGHTS.get(v, 1.0) for v in current_counts if v != "ambulance")
+                density_pct = min(100, int((weighted_score / MAX_LANE_CAPACITY) * 100))
+                total_count = sum(current_counts.values())
+                
+                junctions[lane_id]["counts"] = current_counts
+                junctions[lane_id]["total"] = total_count
+                junctions[lane_id]["density"] = density_pct
+                junctions[lane_id]["status"] = "Heavy" if density_pct > 70 else "Smooth"
 
                 # --- EMERGENCY PROTOCOL (Manual or AI Detection) ---
                 if current_counts["ambulance"] > 0:
@@ -220,6 +232,7 @@ def process_lane_video(lane_id):
                 color = (0, 255, 0) # Green (Car)
                 if label in ["bus", "truck"]: color = (0, 165, 255) # Orange
                 if label == "bike": color = (255, 0, 0) # Blue
+                if label == "ambulance": color = (0, 0, 255) # Red for ambulance
                 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(frame, label.upper(), (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
@@ -230,7 +243,8 @@ def process_lane_video(lane_id):
             if stats["density"] > 80: text_color = (0, 0, 255) 
             elif stats["density"] > 50: text_color = (0, 165, 255)
             
-            counts_str = f"Cars:{stats['counts']['car']} Bus:{stats['counts']['bus']} Trk:{stats['counts']['truck']}"
+            amb_text = "AMB: YES" if stats['counts']['ambulance'] > 0 else "AMB: NO"
+            counts_str = f"Cars:{stats['counts']['car']} Bus:{stats['counts']['bus']} {amb_text}"
             cv2.putText(frame, counts_str, (10, 345), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
             
             main_stat = f"Total: {stats['total']} | Load: {stats['density']}%"
@@ -244,7 +258,7 @@ def process_lane_video(lane_id):
             time.sleep(0.03)
 
     except Exception as e:
-        print(f"âŒ Error processing {lane_id}: {e}")
+        print(f"❌ Error processing {lane_id}: {e}")
     finally:
         cap.release()
 
@@ -354,9 +368,10 @@ def video_feed(lane_id):
 
 def generate_frames(lane_id):
     while True:
-        if frame_buffer[lane_id]:
+        if frame_buffer.get(lane_id):
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_buffer[lane_id] + b'\r\n')
+            time.sleep(0.01) # Small sleep to prevent CPU hogging
         else:
             time.sleep(0.1)
 
