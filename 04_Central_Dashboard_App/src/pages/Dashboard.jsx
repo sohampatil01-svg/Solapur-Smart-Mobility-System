@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { LayoutDashboard, Settings, Map, Bell, ParkingCircle, Flame } from 'lucide-react';
+import { LayoutDashboard, Settings, Map, Bell, ParkingCircle, Flame, LogOut } from 'lucide-react';
 
 import LiveGrid from '../components/LiveGrid'; 
 import AnalyticsPanel from '../components/AnalyticsPanel';
@@ -15,6 +15,12 @@ const Dashboard = () => {
   const [trafficData, setTrafficData] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard'); 
   const [loading, setLoading] = useState(true);
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userDept');
+    window.location.reload();
+  };
 
   // Robust Polling Mechanism
   useEffect(() => {
@@ -116,8 +122,22 @@ const Dashboard = () => {
                     <Bell className="w-5 h-5" />
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border border-slate-900"></span>
                 </button>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white border-2 border-slate-800 shadow-lg">
-                    AD
+                
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-800">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-xs font-bold text-white leading-none">Command Center</p>
+                        <p className="text-[10px] text-slate-500 font-mono mt-1">{localStorage.getItem('userDept') || 'Authorized Personnel'}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white border border-white/10 shadow-lg">
+                        AD
+                    </div>
+                    <button 
+                        onClick={handleLogout}
+                        className="p-2 text-slate-400 hover:text-rose-400 transition-colors" 
+                        title="Secure Logout"
+                    >
+                        <LogOut className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
         </header>
