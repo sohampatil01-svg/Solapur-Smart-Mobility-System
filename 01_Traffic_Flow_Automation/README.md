@@ -1,92 +1,47 @@
-# Traffic Flow Automation Module
+# AI Traffic Flow Automation
 
-This module is part of the **Solapur Smart Mobility System**. It provides a backend service that simulates real-time traffic density at key junctions in Solapur and adjusts traffic signals adaptively. It also supports an emergency override mode for ambulances.
+This module serves as the brain of the **Solapur Smart Mobility System**. It processes live video feeds from city junctions using computer vision to dynamically manage traffic signals.
 
-## Features
+## 🌟 Key Features
 
-*   **Real-time Simulation:** Simulates traffic density (0-100%) updates every 5 seconds.
-*   **Adaptive Signal Control:**
-    *   High Density (>80%): Green Light (60s)
-    *   Medium Density (>40%): Green Light (30s)
-    *   Low Density (<=40%): Red Light (15s)
-*   **Emergency Mode:** API to immediately force a Green signal (120s) for emergency vehicles.
-*   **REST API:** JSON endpoints for frontend integration.
+*   **AI-Powered Density Estimation:** Uses **YOLOv8 Nano** to detect and count vehicles (cars, buses, trucks, bikes) in real-time.
+*   **Adaptive Signal Control:** Signal timers are not fixed; they adjust automatically:
+    *   **Heavy Traffic (>70% density):** Long Green window (60-90s).
+    *   **Smooth Traffic (<30% density):** Short Green window or Red to prioritize other lanes.
+*   **Emergency "Green Corridor":** Instantly detects ambulances (or via API trigger) to force a GREEN signal for the emergency lane while holding all others at RED.
+*   **Live MJPEG Streaming:** Provides a low-latency video stream with AI bounding boxes for the central dashboard.
+*   **Historical Logging:** Saves traffic snapshots every 5 seconds to an SQLite database for trend analysis.
 
-## Setup Instructions
+## 🛠 Tech Stack
+*   **Python / Flask** (Backend API & Web Server)
+*   **OpenCV** (Video Processing)
+*   **Ultralytics YOLOv8** (Object Detection)
+*   **SQLite3** (Data Persistence)
 
-### Prerequisites
-*   Python 3.x installed.
+## 🚀 Setup & Execution
 
-### Installation
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-1.  Navigate to the module directory:
-    ```bash
-    cd "01_Traffic_Flow_Automation"
-    ```
-
-2.  Install the required dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-## Running the Server
-
-Start the traffic server using the following command:
-
+### 2. Run the AI Server
 ```bash
 python traffic_server.py
 ```
+The server runs on `http://localhost:5001`.
 
-The server will start on **port 5001**.
-*   **Host:** `0.0.0.0` (Accessible on local network)
-*   **Port:** `5001`
+## 📡 API Endpoints
 
-## API Documentation
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/traffic-data` | Returns real-time counts, signals, and parking data. |
+| `POST` | `/upload-video` | Upload an `.mp4` file to simulate a live junction feed. |
+| `GET` | `/video_feed/<lane_id>` | Returns an MJPEG stream with AI detection overlays. |
+| `POST` | `/emergency` | Manually trigger a Green Corridor for a specific lane. |
 
-### 1. Get Traffic Data
-Retrieves the current status (density, signal, timer) for all junctions.
-
-*   **Endpoint:** `GET /traffic-data`
-*   **Response Example:**
-    ```json
-    {
-        "Shivaji Chowk": {
-            "density": 85,
-            "signal": "GREEN",
-            "timer": 60,
-            "emergency_until": 0.0
-        },
-        "Saat Rasta": {
-            "density": 20,
-            "signal": "RED",
-            "timer": 15,
-            "emergency_until": 0.0
-        },
-        ...
-    }
-    ```
-
-### 2. Trigger Emergency
-Activates emergency mode for a specific junction, forcing the signal to GREEN for 120 seconds.
-
-*   **Endpoint:** `POST /emergency`
-*   **Headers:** `Content-Type: application/json`
-*   **Body:**
-    ```json
-    {
-        "junction": "Shivaji Chowk"
-    }
-    ```
-*   **Response:**
-    ```json
-    {
-        "status": "success",
-        "message": "Emergency mode activated for Shivaji Chowk. Signal GREEN for 120s."
-    }
-    ```
-
-## Junctions Covered
-*   Shivaji Chowk
-*   Saat Rasta
-*   Mechanic Chowk
-*   Market Yard
+## 📍 Junctions Monitored
+1.  **Market Yard** (Lane 1)
+2.  **Mechanic Chowk** (Lane 2)
+3.  **Saat Rasta** (Lane 3)
+4.  **Shivaji Chowk** (Lane 4)
