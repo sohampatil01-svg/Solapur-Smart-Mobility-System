@@ -18,18 +18,6 @@ This module serves as the brain of the **Solapur Smart Mobility System**. It pro
 *   **Ultralytics YOLOv8** (Object Detection)
 *   **SQLite3** (Data Persistence)
 
-## 🚀 Setup & Execution
-
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Run the AI Server
-```bash
-python traffic_server.py
-```
-The server runs on `http://localhost:5001`.
 
 ## 📡 API Endpoints
 
