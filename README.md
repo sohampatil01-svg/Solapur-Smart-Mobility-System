@@ -43,46 +43,6 @@ This project is a modern solution designed for **Solapur Municipal Corporation**
 
 ---
 
-## 📦 Project Structure
-```text
-Solapur-Smart-Mobility-System/
-├── 01_Traffic_Flow_Automation/   # Flask Server & AI Processing
-│   ├── traffic_server.py         # Main entry point for AI/API
-│   ├── yolov8n.pt                # AI Model Weights
-│   └── videos/                   # Storage for uploaded traffic footage
-├── 02_Smart_Parking_System/      # Parking Logic & API
-├── 03_Surveillance_Detection/    # Standalone Violation Detection Scripts
-└── 04_Central_Dashboard_App/     # React Frontend (Vite)
-    ├── src/components/           # Reusable UI (LiveGrid, ParkingView, etc.)
-    └── src/pages/                # Main Dashboard Layout
-```
-
----
-
-## 🔧 Installation & Setup
-
-### 1. Prerequisites
-*   Python 3.8+
-*   Node.js (v16+)
-*   npm or yarn
-
-### 2. Backend Setup
-```bash
-cd 01_Traffic_Flow_Automation
-pip install -r requirements.txt
-python traffic_server.py
-```
-*The server will start at `http://localhost:5001`.*
-
-### 3. Frontend Setup
-```bash
-cd 04_Central_Dashboard_App
-npm install
-npm run dev
-```
-*Open `http://localhost:5173` in your browser.*
-
----
 
 ## 🚦 Usage Guide
 1.  **Upload Video:** In the dashboard, click the "Upload" icon on any lane to feed a traffic video file.
