@@ -17,18 +17,6 @@ The "Control Room" for the Solapur Smart Mobility System. This is a high-perform
 *   **Charts:** Recharts
 *   **State Management:** React Hooks (useEffect/useState) with robust 3-second polling.
 
-## 🚀 Setup Instructions
-
-### 1. Install Dependencies
-```bash
-npm install
-```
-
-### 2. Launch Development Server
-```bash
-npm run dev
-```
-*Note: Ensure the Backend (Port 5001) is running first for data to appear.*
 
 ## 📂 UI Components
 *   `LiveGrid.jsx`: Handles the multi-stream video matrix.
