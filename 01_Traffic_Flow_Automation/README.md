@@ -2,7 +2,7 @@
 
 This module serves as the brain of the **Solapur Smart Mobility System**. It processes live video feeds from city junctions using computer vision to dynamically manage traffic signals.
 
-## 🌟 Key Features
+##  Key Features
 
 *   **AI-Powered Density Estimation:** Uses **YOLOv8 Nano** to detect and count vehicles (cars, buses, trucks, bikes) in real-time.
 *   **Adaptive Signal Control:** Signal timers are not fixed; they adjust automatically:
@@ -12,14 +12,14 @@ This module serves as the brain of the **Solapur Smart Mobility System**. It pro
 *   **Live MJPEG Streaming:** Provides a low-latency video stream with AI bounding boxes for the central dashboard.
 *   **Historical Logging:** Saves traffic snapshots every 5 seconds to an SQLite database for trend analysis.
 
-## 🛠 Tech Stack
+##  Tech Stack
 *   **Python / Flask** (Backend API & Web Server)
 *   **OpenCV** (Video Processing)
 *   **Ultralytics YOLOv8** (Object Detection)
 *   **SQLite3** (Data Persistence)
 
 
-## 📡 API Endpoints
+##  API Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -28,7 +28,7 @@ This module serves as the brain of the **Solapur Smart Mobility System**. It pro
 | `GET` | `/video_feed/<lane_id>` | Returns an MJPEG stream with AI detection overlays. |
 | `POST` | `/emergency` | Manually trigger a Green Corridor for a specific lane. |
 
-## 📍 Junctions Monitored
+##  Junctions Monitored
 1.  **Market Yard** (Lane 1)
 2.  **Mechanic Chowk** (Lane 2)
 3.  **Saat Rasta** (Lane 3)
