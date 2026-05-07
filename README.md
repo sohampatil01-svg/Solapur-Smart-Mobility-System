@@ -6,14 +6,14 @@
 ![React](https://img.shields.io/badge/Frontend-React/Vite-61DAFB)
 ![YOLO](https://img.shields.io/badge/AI-YOLOv8-orange)
 
-## 📌 Project Overview
+##  Project Overview
 Solapur is growing fast, and so is its traffic. Major hotspots like the Railway Station, Market Yard, and Saat Rasta often face heavy congestion due to static signal timings and unauthorized roadside activities. 
 
 This project is a modern solution designed for **Solapur Municipal Corporation** to manage city mobility smarter. It uses real-time AI to adjust traffic signals based on actual vehicle density, detects illegal parking or hawkers blocking roads, and provides a central dashboard for city officials to monitor everything from a single command center.
 
 ---
 
-## 🚀 Core Modules
+##  Core Modules
 
 ### 1. AI Traffic Flow Automation
 *   **Adaptive Signaling:** Uses YOLOv8 to estimate vehicle density in real-time. Instead of fixed timers, the green light duration changes based on whether a lane is "Heavy" or "Smooth".
@@ -35,7 +35,7 @@ This project is a modern solution designed for **Solapur Municipal Corporation**
 
 ---
 
-## 🛠 Tech Stack
+##  Tech Stack
 *   **Frontend:** React (Vite), Tailwind CSS, Lucide Icons, Recharts, Axios.
 *   **Backend:** Python, Flask, Flask-CORS.
 *   **AI/Computer Vision:** OpenCV, Ultralytics YOLOv8 (Nano model for CPU optimization).
@@ -44,7 +44,7 @@ This project is a modern solution designed for **Solapur Municipal Corporation**
 ---
 
 
-## 🚦 Usage Guide
+##  Usage Guide
 1.  **Upload Video:** In the dashboard, click the "Upload" icon on any lane to feed a traffic video file.
 2.  **Monitor AI:** Watch the AI recognize Cars, Buses, Trucks, and Ambulances.
 3.  **Manage Parking:** Switch to the "Parking Control" tab to see slot availability.
@@ -52,7 +52,7 @@ This project is a modern solution designed for **Solapur Municipal Corporation**
 
 ---
 
-## 📈 Future Roadmap
+##  Future Roadmap
 *   [ ] Integration with actual IOT hardware (IR/Ultrasonic sensors).
 *   [ ] SMS/Push notification alerts for traffic police on violations.
 *   [ ] Multi-junction coordination (Green wave logic).
